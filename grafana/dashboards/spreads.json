@@ -1,0 +1,744 @@
+{
+  "uid": "pm-spreads",
+  "title": "Pair monitor / Spreads",
+  "tags": [
+    "pair_monitor"
+  ],
+  "timezone": "",
+  "editable": true,
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Pair monitor",
+      "type": "dashboards",
+      "tags": [
+        "pair_monitor"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Premium against the midline",
+      "id": 2,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Premium, midline and band",
+      "description": "prem = (mid_a / mid_b - 1) x 1e4; midline = rolling 1 h in-session median (pair_arb's).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, pair || ' prem' AS metric, prem_bp AS value FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, pair || ' midline', midline_bp FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, pair || ' +band', midline_bp + $band FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, pair || ' -band', midline_bp - $band FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Deviation from the midline",
+      "description": "Orange line: band. Episodes are shaded (annotations).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, pair AS metric, dev_bp AS value FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "unit": "none",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Edge toward the midline vs round-trip fees",
+      "description": "Touch-to-touch edge of trading toward the midline now (positive = capturable before exit costs); rt fee = taker fees of a full round trip.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, pair || ' sell a' AS metric, sell_a_vs_mid_bp AS value FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, pair || ' buy a', buy_a_vs_mid_bp FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, pair || ' rt fee', rt_fee_bp FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Touch spreads",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, pair || ' a' AS metric, spread_a_bp AS value FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, pair || ' b', spread_b_bp FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Books",
+      "id": 7,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Mid by venue",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, venue AS metric, mid AS value FROM book WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Top-of-book size (USD)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(ts, '10s'), venue || ' bid' AS metric, avg(bid_sz * bid) AS value FROM book WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1, 2 UNION ALL SELECT $__timeGroupAlias(ts, '10s'), venue || ' ask', avg(ask_sz * ask) FROM book WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 27
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Book age (ms)",
+      "description": "Time since the last BBO update at sampling; samples older than 10 s are excluded from the premium.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(ts, '10s'), venue AS metric, max(age_ms) AS value FROM book WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Bot's view (io/xyz): premium and midline",
+      "description": "From the bot's once-a-minute status line; compare with hl_io/hl_xyz above.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, sym || ' bot prem' AS metric, prem_bp AS value FROM bot_status_sym WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) UNION ALL SELECT ts, sym || ' bot midline', midline_bp FROM bot_status_sym WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Episodes",
+      "id": 12,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Episodes",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT start_ts, pair, dir, phase, round(confirm_dev_bp::numeric,2) AS confirm_dev, round(peak_dev_bp::numeric,2) AS peak_dev,\n               round(peak_edge_bp::numeric,2) AS peak_edge, round((peak_edge_bp - rt_fee_bp)::numeric,2) AS peak_edge_net,\n               round(half_s::numeric,1) AS half_s, round(duration_s::numeric,1) AS duration_s, coalesce(end_reason,'open') AS end\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) ORDER BY start_ts DESC LIMIT 500"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "half_s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration_s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Bot trades on this symbol (realised bp)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, 'maker' AS metric, real_bp AS value FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) UNION ALL SELECT ts, 'taker', real_bp FROM bot_taker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false,
+            "pointSize": 6,
+            "drawStyle": "points"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "sym",
+        "label": "sym",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "pm-db"
+        },
+        "query": "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "allValue": null,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "query",
+        "name": "pair",
+        "label": "pair",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "pm-db"
+        },
+        "query": "SELECT DISTINCT pair FROM spread WHERE sym IN (${sym:sqlstring}) AND ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT pair FROM spread WHERE sym IN (${sym:sqlstring}) AND ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "allValue": null,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "custom",
+        "name": "band",
+        "label": "band bp",
+        "query": "2",
+        "current": {
+          "text": "2",
+          "value": "2"
+        },
+        "options": [
+          {
+            "text": "2",
+            "value": "2",
+            "selected": true
+          }
+        ],
+        "hide": 0
+      },
+      {
+        "type": "custom",
+        "name": "exitbp",
+        "label": "exit bp",
+        "query": "0.5",
+        "current": {
+          "text": "0.5",
+          "value": "0.5"
+        },
+        "options": [
+          {
+            "text": "0.5",
+            "value": "0.5",
+            "selected": true
+          }
+        ],
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "name": "Episodes",
+        "enable": true,
+        "iconColor": "orange",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "pm-db"
+        },
+        "target": {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT confirm_ts AS time, coalesce(end_ts, now()) AS \"timeEnd\",\n                              pair || ' dir ' || dir || ' peak ' || round(peak_dev_bp::numeric, 1) || ' bp, ' || coalesce(end_reason, 'open') AS text\n                              FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts)"
+        }
+      }
+    ]
+  }
+}

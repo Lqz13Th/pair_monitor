@@ -1,0 +1,36 @@
+db_url = "postgres://monitor:monitor@127.0.0.1:15450/monitor"
+
+# Underlyings; each is sampled on every venue below that lists it.
+symbols = ["SNDK", "NBIS", "EWY", "DRAM", "COIN", "MU", "NVDA", "TSLA", "HOOD", "CRCL"]
+# Order matters: every later venue is priced against every earlier one (the first is the hub).
+venues = ["hl_xyz", "hl_io", "lighter"]
+
+[signal]            # pair_arb's signal parameters
+band_bp = 2.0
+persist_ms = 2000
+midline_window_s = 3600
+midline_min_samples = 1800
+exit_bp = 0.5       # an episode converges once |deviation| <= exit_bp
+episode_timeout_s = 1800
+
+[taker_fee_bp]      # effective taker fee per venue
+hl_xyz = 0.864
+hl_io = 0.864
+lighter = 0.0
+
+[accounts]
+hl_user = "0x0000000000000000000000000000000000000000"   # owner address, public
+lighter_account = 0
+lighter_api_key_index = 4                                # with LIGHTER_API_PRIVATE_KEY set: fills and funding
+
+[poll]
+account_s = 10
+fills_s = 30
+fills_backfill_h = 168
+
+[bot]               # pair_arb data dir, mirrored read-only over rsync
+host = "root@1.2.3.4"
+ssh_key = "~/.ssh/id_ed25519"
+remote_dir = "/root/pair_arb/data/"
+local_dir = "~/work/quant/data/pair_monitor/bot"
+sync_s = 60

@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+  - name: TimescaleDB
+    uid: pm-db
+    type: grafana-postgresql-datasource
+    url: db:5432
+    user: monitor
+    isDefault: true
+    jsonData:
+      database: monitor
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: true
+      maxOpenConns: 10
+    secureJsonData:
+      password: monitor

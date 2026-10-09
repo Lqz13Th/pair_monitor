@@ -1,0 +1,835 @@
+{
+  "uid": "pm-trades",
+  "title": "Pair monitor / Bot trades",
+  "tags": [
+    "pair_monitor"
+  ],
+  "timezone": "",
+  "editable": true,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Pair monitor",
+      "type": "dashboards",
+      "tags": [
+        "pair_monitor"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Per symbol",
+      "id": 2,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Maker trades by symbol",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT sym, count(*) AS trades, round(avg(plan_bp)::numeric,2) AS \"avg plan bp\", round(avg(real_bp)::numeric,2) AS \"avg real bp\",\n          round(avg(real_bp - plan_bp)::numeric,2) AS \"avg slip bp\", round(sum(real_bp / 1e4 * sz * px_io)::numeric,4) AS \"edge USD\",\n          round(sum(sz * px_io)::numeric,0) AS \"notional USD\", round(percentile_cont(0.5) WITHIN GROUP (ORDER BY hedge_delay_ms)::numeric,0) AS \"p50 hedge ms\",\n          round(percentile_cont(0.9) WITHIN GROUP (ORDER BY hedge_delay_ms)::numeric,0) AS \"p90 hedge ms\", round(100.0*avg((real_bp > 0)::int),1) AS \"win %\"\n        FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1 ORDER BY trades DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "edge USD"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Taker trades by symbol",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT sym, count(*) AS trades, round(avg(plan_bp)::numeric,2) AS \"avg plan bp\", round(avg(real_bp)::numeric,2) AS \"avg real bp\",\n          round(avg(real_bp - plan_bp)::numeric,2) AS \"avg slip bp\", round(sum(real_bp / 1e4 * sz_io * px_io)::numeric,4) AS \"edge USD\",\n          round(sum(sz_io * px_io)::numeric,0) AS \"notional USD\", round(100.0*avg((real_bp > 0)::int),1) AS \"win %\"\n        FROM bot_taker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1 ORDER BY trades DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "edge USD"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Trades over time",
+      "id": 5,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Maker: planned vs realised bp",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, sym || ' plan' AS metric, plan_bp AS value FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) UNION ALL SELECT ts, sym || ' real', real_bp FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false,
+            "pointSize": 6,
+            "drawStyle": "points"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Maker: hedge delay (ms)",
+      "description": "Maker fill to hedge fill on xyz.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, sym AS metric, hedge_delay_ms AS value FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false,
+            "pointSize": 6,
+            "drawStyle": "points"
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Taker: planned vs realised bp",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, sym || ' plan' AS metric, plan_bp AS value FROM bot_taker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) UNION ALL SELECT ts, sym || ' real', real_bp FROM bot_taker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false,
+            "pointSize": 6,
+            "drawStyle": "points"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Trades per hour",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 hour', ts) AS time, 'maker' AS metric, count(*) AS value FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1 UNION ALL SELECT time_bucket('1 hour', ts), 'taker', count(*) FROM bot_taker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Quoting (event journal)",
+      "id": 10,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Events per hour",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 hour', ts) AS time, ev AS metric, count(*) AS value FROM bot_event WHERE $__timeFilter(ts) AND (sym IS NULL OR sym IN (${sym:sqlstring})) AND ev IN ('quote_post','quote_cancel','maker_fill','hedge','signal','order_sent','quote_rejected') GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Maker fill rate per hour (%)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 hour', ts) AS time, 100.0 * count(*) FILTER (WHERE ev = 'maker_fill') / nullif(count(*) FILTER (WHERE ev = 'quote_post'), 0) AS \"fills / quotes\"\n        FROM bot_event WHERE $__timeFilter(ts) AND (sym IS NULL OR sym IN (${sym:sqlstring})) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Quote life (ms): p50 / p90",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 hour', ts) AS time, percentile_cont(0.5) WITHIN GROUP (ORDER BY (body->>'life_ms')::float) AS p50,\n               percentile_cont(0.9) WITHIN GROUP (ORDER BY (body->>'life_ms')::float) AS p90\n        FROM bot_event WHERE $__timeFilter(ts) AND (sym IS NULL OR sym IN (${sym:sqlstring})) AND ev = 'quote_done' GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Round trips (ms): order and quote ack",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('10 minutes', ts) AS time, ev || ' p50' AS metric, percentile_cont(0.5) WITHIN GROUP (ORDER BY (body->>'rtt_ms')::float) AS value\n        FROM bot_event WHERE $__timeFilter(ts) AND (sym IS NULL OR sym IN (${sym:sqlstring})) AND ev IN ('order_result','quote_ack') GROUP BY 1, 2\n        UNION ALL SELECT time_bucket('10 minutes', ts), ev || ' p90', percentile_cont(0.9) WITHIN GROUP (ORDER BY (body->>'rtt_ms')::float)\n        FROM bot_event WHERE $__timeFilter(ts) AND (sym IS NULL OR sym IN (${sym:sqlstring})) AND ev IN ('order_result','quote_ack') GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Quote outcomes",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT body->>'why' AS outcome, count(*) AS quotes, round(avg((body->>'life_ms')::float)::numeric,0) AS \"avg life ms\",\n               round(avg((body->>'filled')::float)::numeric,4) AS \"avg filled\"\n        FROM bot_event WHERE $__timeFilter(ts) AND (sym IS NULL OR sym IN (${sym:sqlstring})) AND ev = 'quote_done' GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Problems (halt, pause, rejections, errors)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT ts, ev, sym, body::text AS detail FROM bot_event WHERE $__timeFilter(ts)\n        AND ev IN ('halt','pause','recon_adopt','order_error','recon_mismatch','recon_error','quote_rejected','quote_post_error','build_failed','lagged','liq_topup','liq_close','imbalance_fix')\n        ORDER BY ts DESC LIMIT 200"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Journal",
+      "id": 17,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 55
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Maker trades",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT ts, sym, dir, sz, px_io, px_xyz, plan_bp, real_bp, hedge_delay_ms, pnl_after FROM bot_maker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY ts DESC LIMIT 500"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 18,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Taker trades",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT ts, sym, dir, sz_io, sz_xyz, px_io, px_xyz, plan_bp, real_bp, pnl_after FROM bot_taker WHERE sym IN (${sym:sqlstring}) AND $__timeFilter(ts) ORDER BY ts DESC LIMIT 500"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 65
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "sym",
+        "label": "sym",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "pm-db"
+        },
+        "query": "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": null,
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}

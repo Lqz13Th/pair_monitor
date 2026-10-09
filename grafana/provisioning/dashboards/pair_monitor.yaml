@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: pair_monitor
+    folder: Pair monitor
+    type: file
+    allowUiUpdates: true
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/dashboards

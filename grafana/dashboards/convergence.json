@@ -1,0 +1,706 @@
+{
+  "uid": "pm-convergence",
+  "title": "Pair monitor / Convergence",
+  "tags": [
+    "pair_monitor"
+  ],
+  "timezone": "",
+  "editable": true,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Pair monitor",
+      "type": "dashboards",
+      "tags": [
+        "pair_monitor"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "title": "Summary",
+      "id": 2,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Episodes by pair",
+      "description": "Duration = confirm to |dev| <= exit. Peak edge = best touch edge toward the midline while open; net = minus round-trip taker fees.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT sym, pair, count(*) AS episodes,\n          round(100.0 * avg((end_reason = 'converged')::int), 1) AS \"converged %\",\n          round(100.0 * avg((end_reason = 'timeout')::int), 1) AS \"timeout %\",\n          round(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_s) FILTER (WHERE end_reason = 'converged')::numeric, 1) AS \"p50 converge s\",\n          round(percentile_cont(0.9) WITHIN GROUP (ORDER BY duration_s) FILTER (WHERE end_reason = 'converged')::numeric, 1) AS \"p90 converge s\",\n          round(percentile_cont(0.5) WITHIN GROUP (ORDER BY half_s)::numeric, 1) AS \"p50 half s\",\n          round(avg(abs(peak_dev_bp))::numeric, 2) AS \"avg |peak dev|\",\n          round(avg(peak_edge_bp)::numeric, 2) AS \"avg peak edge\",\n          round(avg(peak_edge_bp - rt_fee_bp)::numeric, 2) AS \"avg net edge\",\n          round(100.0 * avg((peak_edge_bp > rt_fee_bp)::int), 1) AS \"edge > fees %\"\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) GROUP BY 1, 2 ORDER BY episodes DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 3,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "table",
+      "title": "By US session phase",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT phase, count(*) AS episodes, round(100.0 * avg((end_reason = 'converged')::int), 1) AS \"converged %\",\n          round(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_s) FILTER (WHERE end_reason = 'converged')::numeric, 1) AS \"p50 converge s\",\n          round(avg(abs(peak_dev_bp))::numeric, 2) AS \"avg |peak dev|\", round(avg(peak_edge_bp - rt_fee_bp)::numeric, 2) AS \"avg net edge\"\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 4,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "table",
+      "title": "By end reason",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT coalesce(end_reason, 'open') AS reason, count(*) AS episodes, round(avg(duration_s)::numeric, 1) AS \"avg s\",\n          round(avg(abs(peak_dev_bp))::numeric, 2) AS \"avg |peak dev|\", round(avg(abs(end_dev_bp))::numeric, 2) AS \"avg |end dev|\"\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": []
+      },
+      "id": 5,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Distributions",
+      "id": 6,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "panels": []
+    },
+    {
+      "type": "barchart",
+      "title": "Time to converge (s)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT CASE WHEN duration_s < 5 THEN '0-5' WHEN duration_s < 15 THEN '5-15' WHEN duration_s < 30 THEN '15-30'\n                    WHEN duration_s < 60 THEN '30-60' WHEN duration_s < 120 THEN '60-120' WHEN duration_s < 300 THEN '120-300'\n                    WHEN duration_s < 900 THEN '300-900' ELSE '900+' END AS bucket, count(*) AS episodes\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) AND end_reason = 'converged'\n        GROUP BY 1 ORDER BY min(duration_s)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "stacking": "none",
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "xTickLabelRotation": -45
+      },
+      "id": 7,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Peak |deviation| (bp)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT bucket, episodes FROM (\n          SELECT least(floor(abs(peak_dev_bp)), 12) AS k,\n                 CASE WHEN abs(peak_dev_bp) >= 12 THEN '12+' ELSE floor(abs(peak_dev_bp))::int::text END AS bucket, count(*) AS episodes\n          FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) GROUP BY 1, 2) t ORDER BY k"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "stacking": "none",
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "xTickLabelRotation": -45
+      },
+      "id": 8,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "Episodes by hour (New York)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT lpad(extract(hour FROM start_ts AT TIME ZONE 'America/New_York')::text, 2, '0') AS hour, count(*) AS episodes,\n               round(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_s)::numeric, 1) AS \"p50 s\"\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "orientation": "auto",
+        "stacking": "none",
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "xTickLabelRotation": -45
+      },
+      "id": 9,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "xychart",
+      "title": "Peak deviation vs time to converge",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT abs(peak_dev_bp) AS peak_dev_bp, duration_s FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) AND end_reason = 'converged'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "show": "points",
+            "pointSize": {
+              "fixed": 6
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "seriesMapping": "auto",
+        "dims": {
+          "x": "peak_dev_bp"
+        },
+        "series": [
+          {
+            "x": "peak_dev_bp",
+            "y": "duration_s"
+          }
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Over time",
+      "id": 11,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Episodes per hour",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 hour', start_ts) AS time, pair AS metric, count(*) AS value FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 30,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Median time to converge per hour (s)",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time_bucket('1 hour', start_ts) AS time, pair AS metric, percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_s) AS value\n        FROM episode WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts) AND end_reason = 'converged' GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "AR(1) half-life of the deviation (s)",
+      "description": "Rolling 1 h AR(1) fit of 1 s deviations: seconds for a deviation to halve.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, sym || ' ' || pair AS metric, half_life_s AS value FROM spread_stats WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Deviation std (bp) and time outside the band",
+      "description": "",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, sym || ' ' || pair || ' std' AS metric, dev_std_bp AS value FROM spread_stats WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)\n        UNION ALL SELECT ts, sym || ' ' || pair || ' % outside', 100 * frac_outside FROM spread_stats WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Premium level by pair (1 min mean)",
+      "description": "Persistent cross-venue premium: the level the deviations revert to.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "pm-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(ts, '1m'), sym || ' ' || pair AS metric, avg(prem_bp) AS value FROM spread WHERE sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "pm-db"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "sym",
+        "label": "sym",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "pm-db"
+        },
+        "query": "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": null,
+        "current": {},
+        "options": []
+      },
+      {
+        "type": "query",
+        "name": "pair",
+        "label": "pair",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "pm-db"
+        },
+        "query": "SELECT DISTINCT pair FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "definition": "SELECT DISTINCT pair FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": null,
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}
