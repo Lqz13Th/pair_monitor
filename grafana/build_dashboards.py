@@ -13,15 +13,28 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "dashboards"
 DS = {"type": "grafana-postgresql-datasource", "uid": "pm-db"}
-LINKS = [{"title": "Pair monitor", "type": "dashboards", "tags": ["pair_monitor"], "asDropdown": False, "includeVars": False, "keepTime": True}]
+# (uid, tab label) in tab order
+PAGES = [("pm-overview", "Overview"), ("pm-spreads", "Spreads"), ("pm-convergence", "Convergence"),
+         ("pm-trades", "Bot trades"), ("pm-fills", "Fills and costs"), ("pm-risk", "Risk")]
+TAB = "padding:4px 14px; border:1px solid #3a4250; border-radius:4px; text-decoration:none; color:#c8d0da; font-size:13px;"
+TAB_ON = "padding:4px 14px; border:1px solid #3d71d9; border-radius:4px; text-decoration:none; color:#fff; background:#1f3b6e; font-size:13px;"
+
+
+def nav(current):
+    """Tabs in a full-width text panel at the top: native dashboard links share the controls bar with the variable
+    pickers and move sideways between dashboards with different variables. The links keep the time range."""
+    tabs = "".join(f'<a href="/d/{uid}?${{__url_time_range}}" style="{TAB_ON if uid == current else TAB}">{label}</a>' for uid, label in PAGES)
+    return {"type": "text", "title": "", "transparent": True,
+            "options": {"mode": "html", "content": f'<div style="display:flex; gap:6px; flex-wrap:wrap;">{tabs}</div>'}}
 
 
 class Board:
-    def __init__(self, uid, title, refresh="30s", time_from="now-6h", variables=()):
-        self.uid, self.title, self.refresh, self.time_from = uid, title, refresh, time_from
+    def __init__(self, uid, title, time_from="now-6h", variables=()):
+        self.uid, self.title, self.time_from = uid, title, time_from
         self.variables = list(variables)
         self.panels, self.y, self.x, self.row_h, self.next_id = [], 0, 0, 0, 1
         self.annotations = []
+        self.add(nav(uid), 24, 2)
 
     def row(self, title):
         self.newline()
@@ -43,7 +56,8 @@ class Board:
             self.newline()
         panel["id"] = self._id()
         panel["gridPos"] = {"h": h, "w": w, "x": self.x, "y": self.y}
-        panel.setdefault("datasource", DS)
+        if panel["type"] != "text":
+            panel.setdefault("datasource", DS)
         self.panels.append(panel)
         self.x += w
         self.row_h = max(self.row_h, h)
@@ -51,8 +65,8 @@ class Board:
     def json(self):
         return {
             "uid": self.uid, "title": self.title, "tags": ["pair_monitor"], "timezone": "", "editable": True,
-            "refresh": self.refresh, "schemaVersion": 39, "time": {"from": self.time_from, "to": "now"},
-            "graphTooltip": 1, "links": LINKS, "panels": self.panels,
+            "refresh": "30s", "schemaVersion": 39, "time": {"from": self.time_from, "to": "now"},
+            "graphTooltip": 1, "links": [], "panels": self.panels,
             "templating": {"list": self.variables},
             "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"},
                                       "enable": True, "hide": True, "name": "Annotations & Alerts", "type": "dashboard"}]
@@ -126,17 +140,18 @@ def var_query(name, sql, multi=False, include_all=False, label=None):
             "current": {}, "options": []}
 
 
-def var_custom(name, value, label=None):
-    return {"type": "custom", "name": name, "label": label or name, "query": value, "current": {"text": value, "value": value},
-            "options": [{"text": value, "value": value, "selected": True}], "hide": 0}
+def var_const(name, value):
+    """Hidden, so every dashboard's controls bar stays one line and the tabs below it do not move."""
+    return {"type": "constant", "name": name, "query": value, "hide": 2, "current": {"text": value, "value": value},
+            "options": [{"text": value, "value": value, "selected": True}]}
 
 
 SYM = var_query("sym", "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1")
 SYMS = var_query("sym", "SELECT DISTINCT sym FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1", multi=True, include_all=True)
 PAIR = var_query("pair", "SELECT DISTINCT pair FROM spread WHERE sym IN (${sym:sqlstring}) AND ts > now() - INTERVAL '2 days' ORDER BY 1")
 PAIRS = var_query("pair", "SELECT DISTINCT pair FROM spread WHERE ts > now() - INTERVAL '2 days' ORDER BY 1", multi=True, include_all=True)
-BAND = var_custom("band", "2", "band bp")
-EXIT = var_custom("exitbp", "0.5", "exit bp")
+BAND = var_const("band", "2")
+EXIT = var_const("exitbp", "0.5")
 EP_FILTER = "sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(start_ts)"
 # edge of a maker/taker trade in USD from the journal: realised bp on the io notional
 MAKER_USD = "real_bp / 1e4 * sz * px_io"
@@ -200,9 +215,9 @@ def overview():
 
 
 def spreads():
-    b = Board("pm-spreads", "Pair monitor / Spreads", refresh="10s", time_from="now-3h", variables=[SYM, PAIR, BAND, EXIT])
+    b = Board("pm-spreads", "Pair monitor / Spreads", time_from="now-3h", variables=[SYM, PAIR, BAND, EXIT])
     f = "sym IN (${sym:sqlstring}) AND pair IN (${pair:sqlstring}) AND $__timeFilter(ts)"
-    b.annotations.append({"name": "Episodes", "enable": True, "iconColor": "orange", "datasource": DS,
+    b.annotations.append({"name": "Episodes", "enable": True, "hide": True, "iconColor": "orange", "datasource": DS,
                           "target": target(f"""SELECT confirm_ts AS time, coalesce(end_ts, now()) AS "timeEnd",
                               pair || ' dir ' || dir || ' peak ' || round(peak_dev_bp::numeric, 1) || ' bp, ' || coalesce(end_reason, 'open') AS text
                               FROM episode WHERE {EP_FILTER}""", "table")})
@@ -245,7 +260,7 @@ def spreads():
 
 
 def convergence():
-    b = Board("pm-convergence", "Pair monitor / Convergence", refresh="1m", time_from="now-7d", variables=[SYMS, PAIRS])
+    b = Board("pm-convergence", "Pair monitor / Convergence", time_from="now-7d", variables=[SYMS, PAIRS])
     b.row("Summary")
     b.add(table("Episodes by pair", f"""
         SELECT sym, pair, count(*) AS episodes,
@@ -307,7 +322,7 @@ def convergence():
 
 
 def trades():
-    b = Board("pm-trades", "Pair monitor / Bot trades", refresh="1m", time_from="now-24h", variables=[SYMS])
+    b = Board("pm-trades", "Pair monitor / Bot trades", time_from="now-24h", variables=[SYMS])
     sf = "sym IN (${sym:sqlstring}) AND $__timeFilter(ts)"
     b.row("Per symbol")
     b.add(table("Maker trades by symbol", f"""
@@ -361,7 +376,7 @@ def trades():
 
 
 def fills():
-    b = Board("pm-fills", "Pair monitor / Fills and costs", refresh="1m", time_from="now-24h", variables=[SYMS])
+    b = Board("pm-fills", "Pair monitor / Fills and costs", time_from="now-24h", variables=[SYMS])
     sf = "sym IN (${sym:sqlstring}) AND $__timeFilter(ts)"
     b.row("Volume and fees")
     b.add(ts("Volume per hour by venue", f"SELECT time_bucket('1 hour', ts) AS time, venue || CASE WHEN maker THEN ' maker' ELSE ' taker' END AS metric, sum(notional) AS value "
@@ -385,7 +400,7 @@ def fills():
 
 
 def risk():
-    b = Board("pm-risk", "Pair monitor / Risk", refresh="30s", time_from="now-24h", variables=[SYMS])
+    b = Board("pm-risk", "Pair monitor / Risk", time_from="now-24h", variables=[SYMS])
     sf = "sym IN (${sym:sqlstring}) AND $__timeFilter(ts)"
     b.row("Exposure")
     b.add(ts("Position notional by leg", f"SELECT $__timeGroupAlias(ts, '1m'), venue || ' ' || sym AS metric, last(notional, ts) AS value FROM position WHERE {sf} GROUP BY 1, 2 ORDER BY 1",
