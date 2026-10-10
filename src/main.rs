@@ -87,7 +87,15 @@ async fn main() -> anyhow::Result<()> {
 
     let mut feeds = BTreeMap::new();
     for v in &cfg.venues {
-        let feed = discover(*v, &cfg.symbols, http.clone()).await?;
+        let feed = loop {
+            match discover(*v, &cfg.symbols, http.clone()).await {
+                Ok(f) => break f,
+                Err(e) => {
+                    warn!("{v}: {e:#}; retrying in 30 s");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                },
+            }
+        };
         info!("{v}: {:?}", feed.insts);
         feeds.insert(*v, feed);
     }

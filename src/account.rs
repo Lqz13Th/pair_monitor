@@ -1,8 +1,13 @@
-//! Account snapshots every `poll.account_s`: equity, margin, positions (with liquidation distance), open orders and,
-//! on Hyperliquid, the address request quota. Watched symbols without a position get a zero row, so the latest
+//! Account snapshots every `poll.account_s`: equity, margin, positions (with liquidation distance) and open orders.
+//! Hyperliquid open orders and the address request quota weigh 20 each against the 1200 a minute per IP (shared
+//! with the browser on this machine), so they are read every `HL_SLOW_S`. Watched symbols without a position get a zero row, so the latest
 //! row per venue and symbol is always current.
 
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -109,12 +114,15 @@ fn orders_rec(ts: DateTime<Utc>, venue: &str, sym: &str, n: i64, notional: Optio
     )
 }
 
+const HL_SLOW_S: u64 = 60;
+
 async fn hl_once(
     http: &reqwest::Client,
     user: &str,
     cfg: &Config,
     watched: &BTreeMap<Venue, Vec<String>>,
     sink: &Sink,
+    slow: bool,
 ) -> anyhow::Result<()> {
     let ts = Utc::now();
     for venue in cfg.venues.iter().copied().filter(|v| v.hl_dex().is_some()) {
@@ -164,6 +172,9 @@ async fn hl_once(
         for (sym, p) in &positions {
             sink.send(position_rec(ts, venue.name(), sym, p));
         }
+        if !slow {
+            continue;
+        }
 
         let orders = hl_info(
             http,
@@ -211,6 +222,9 @@ async fn hl_once(
         ));
     }
 
+    if !slow {
+        return Ok(());
+    }
     let rate = hl_info(http, json!({"type": "userRateLimit", "user": user})).await?;
     let (used, cap) = (num0(&rate["nRequestsUsed"]), num0(&rate["nRequestsCap"]));
     sink.send(Rec::new(
@@ -306,10 +320,15 @@ pub fn spawn(
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(cfg.poll.account_s));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        let mut last_slow: Option<Instant> = None;
         loop {
             tick.tick().await;
+            let slow = last_slow.is_none_or(|t| t.elapsed() >= Duration::from_secs(HL_SLOW_S));
+            if slow {
+                last_slow = Some(Instant::now());
+            }
             if let Some(user) = cfg.accounts.hl_user.as_deref()
-                && let Err(e) = hl_once(&http, user, &cfg, &watched, &sink).await
+                && let Err(e) = hl_once(&http, user, &cfg, &watched, &sink, slow).await
             {
                 warn!("hyperliquid account poll: {e:#}");
             }

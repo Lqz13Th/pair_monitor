@@ -34,6 +34,7 @@ const FILL_COLS: &[&str] = &[
     "closed_pnl",
 ];
 const DAY_MS: u64 = 86_400_000;
+const HL_OVERLAP_MS: u64 = 600_000;
 
 fn hl_venue_sym(coin: &str) -> (String, String) {
     match split_hl_coin(coin) {
@@ -59,7 +60,8 @@ struct Hl {
     flows_ms: u64,
 }
 
-/// Day windows from `since`, so no window exceeds the API's page cap; returns rows and the newest time seen.
+/// Day windows from `since`, so no window exceeds the API's page cap; returns rows and where the next poll starts:
+/// the newest row, or `HL_OVERLAP_MS` before now when nothing newer came back.
 async fn hl_windows(
     http: &reqwest::Client,
     kind: &str,
@@ -83,7 +85,7 @@ async fn hl_windows(
         }
         t = end;
     }
-    Ok((rows, newest))
+    Ok((rows, newest.max(now.saturating_sub(HL_OVERLAP_MS))))
 }
 
 impl Hl {
