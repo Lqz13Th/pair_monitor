@@ -389,9 +389,9 @@ dependencies = [
 
 [[package]]
 name = "extrema_infra"
-version = "0.5.3"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e253d794545d5bc9aa02d6252cbd79723619fccc2f215f6b5a67ee8361a2050"
+checksum = "9bd21452b68bbb85724df455b2732e47d7c96f95e7ad0e942548faceb330350c"
 dependencies = [
  "data-encoding",
  "dotenvy",
@@ -1241,9 +1241,9 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "perp_dex"
-version = "0.1.4"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75eed9553046a9d2517cb61c7536632d85f147da55e94c8fa11524581a2fcac4"
+checksum = "1a7edd1006b3bc1ffa1a270cf5222a10629225ee222dd29dcd7023b35954ed8a"
 dependencies = [
  "base64 0.23.1",
  "extrema_infra",

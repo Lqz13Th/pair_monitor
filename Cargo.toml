@@ -9,8 +9,8 @@ description = "Local monitor for the cross-venue pair strategy: spreads, converg
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
-extrema_infra = { version = "0.5.3", features = ["hyperliquid"] }
-perp_dex = { version = "0.1.4", default-features = false, features = ["lighter"] }
+extrema_infra = { version = "0.6.0", features = ["hyperliquid"] }
+perp_dex = { version = "0.2.0", default-features = false, features = ["lighter"] }
 reqwest = { version = "0.13.5", features = ["json", "gzip"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
