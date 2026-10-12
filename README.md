@@ -4,7 +4,7 @@ Local monitor for the cross-venue pair strategy (pair_arb): cross-venue spreads 
 positions on every venue, exchange fills and costs, and the bot's own journal. A Rust collector writes everything to
 TimescaleDB; Grafana reads it. The whole stack runs locally, and `deploy/compose.yaml` moves to a server unchanged.
 
-```
+```text
 HL xyz / HL io / Lighter BBO (websocket) ─┐
 HL + Lighter accounts, fills, funding ────┼─> collector ─> TimescaleDB ─> Grafana (http://127.0.0.1:3200)
 pair_arb data dir (rsync, read-only) ─────┘
@@ -85,3 +85,7 @@ records:
 | `fill`, `funding`, `flow` | Exchange history, deduplicated by key |
 | `bot_taker`, `bot_maker`, `bot_event`, `bot_status`, `bot_status_sym` | The pair_arb journal; events keep their full JSON body |
 | `equity_1m`, `net_exposure` | Views |
+
+## License
+
+This project is licensed under the [Apache 2.0 license](LICENSE).
