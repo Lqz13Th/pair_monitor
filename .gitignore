@@ -1,3 +1,5 @@
 /target
 /config/local.toml
 /data
+/.venv
+__pycache__/

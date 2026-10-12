@@ -1,0 +1,28 @@
+[project]
+name = "pair-monitor-tools"
+version = "0.1.0"
+description = "Python tooling for pair_monitor: Grafana dashboard generation."
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.39.9",
+    "ruff>=0.15.21",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.11"
+include = ["grafana"]
+exclude = ["**/__pycache__"]
